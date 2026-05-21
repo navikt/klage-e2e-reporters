@@ -39,7 +39,7 @@ jobs:
             https://registry.npmjs.org/
             @navikt:https://npm.pkg.github.com|$TOKEN
         env:
-          TOKEN: ${{ secrets.READER_TOKEN }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - run: bun install --frozen-lockfile
 
@@ -66,13 +66,13 @@ jobs:
             https://registry.npmjs.org/
             @navikt:https://npm.pkg.github.com|$TOKEN
         env:
-          TOKEN: ${{ secrets.READER_TOKEN }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - run: bun install --frozen-lockfile
 
       - name: Check if version is newer than the published version
         env:
-          READER_TOKEN: ${{ secrets.READER_TOKEN }}
+          READER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bun .github/scripts/check-version.ts
 
       - run: bun run build
