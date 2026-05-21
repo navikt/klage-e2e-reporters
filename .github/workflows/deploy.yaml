@@ -54,7 +54,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - uses: actions/checkout@v6
@@ -83,3 +83,8 @@ jobs:
         run: |
           echo "//npm.pkg.github.com/:_authToken=$TOKEN" >> .npmrc
           bun publish
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "v$(jq -r .version package.json)" --generate-notes
