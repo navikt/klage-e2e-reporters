@@ -1,6 +1,6 @@
 {
   "name": "@navikt/klage-e2e-reporters",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "type": "module",
   "license": "MIT",
   "files": [
@@ -8,16 +8,16 @@
   ],
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "types": "./dist/index.d.mts"
+      "import": { "types": "./dist/index.d.mts", "default": "./dist/index.mjs" },
+      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
     },
     "./slack": {
-      "import": "./dist/slack-reporter.mjs",
-      "types": "./dist/slack-reporter.d.mts"
+      "import": { "types": "./dist/slack-reporter.d.mts", "default": "./dist/slack-reporter.mjs" },
+      "require": { "types": "./dist/slack-reporter.d.cts", "default": "./dist/slack-reporter.cjs" }
     },
     "./status": {
-      "import": "./dist/status-reporter.mjs",
-      "types": "./dist/status-reporter.d.mts"
+      "import": { "types": "./dist/status-reporter.d.mts", "default": "./dist/status-reporter.mjs" },
+      "require": { "types": "./dist/status-reporter.d.cts", "default": "./dist/status-reporter.cjs" }
     }
   },
   "publishConfig": {
