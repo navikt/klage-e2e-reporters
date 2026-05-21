@@ -43,7 +43,7 @@ class SlackClient {
       channel: this.channel,
       text: message,
       username: this.botName,
-      icon_url: this.iconUrl ?? undefined,
+      icon_url: this.iconUrl,
     });
 
     return new SlackMessageThread(this, response);
