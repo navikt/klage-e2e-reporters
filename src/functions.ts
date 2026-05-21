@@ -36,13 +36,13 @@ export const getTestStatusIcon = (test: TestCase, status: TestStatus): SlackIcon
 };
 
 export enum SlackIcon {
-  WARNING = '\u26a0\ufe0f',
-  SUCCESS = '\u2705',
-  WAITING = '\u23f3',
-  TIMED_OUT = '\ud83d\udca4',
-  QUESTION = '\u2753',
-  TADA = '\ud83c\udf89',
-  SKEPTIC = '\ud83e\udd14',
+  WARNING = '⚠️',
+  SUCCESS = '✅',
+  WAITING = '⏳',
+  TIMED_OUT = '💤',
+  QUESTION = '❓',
+  TADA = '🎉',
+  SKEPTIC = '🤔',
   RUNNING = ':meow_code:',
 }
 
