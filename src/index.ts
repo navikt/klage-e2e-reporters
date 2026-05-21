@@ -35,8 +35,5 @@ export const slackReporter = (
  * ```
  */
 export const statusReporter = (
-  options?: StatusReporterOptions,
-): ['@navikt/klage-e2e-reporters/status', StatusReporterOptions] => [
-  '@navikt/klage-e2e-reporters/status',
-  options ?? {},
-];
+  options: StatusReporterOptions,
+): ['@navikt/klage-e2e-reporters/status', StatusReporterOptions] => ['@navikt/klage-e2e-reporters/status', options];
