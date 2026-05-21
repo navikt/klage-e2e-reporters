@@ -1,8 +1,8 @@
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 
 export interface StatusReporterOptions {
-  /** Display name for the job. @default 'E2E' */
-  name?: string;
+  /** Display name for the job. */
+  name: string;
   /** Base URL for the job status API. @default 'https://klage-job-status.ekstern.dev.nav.no' */
   baseUrl?: string;
   /** Timeout in seconds for the job. @default 900 (15 minutes) */
@@ -31,8 +31,7 @@ class StatusReporter implements Reporter {
   private displayName: string;
   private timeout: number;
 
-  constructor(options: StatusReporterOptions = {}) {
-    const name = options.name ?? 'E2E';
+  constructor(options: StatusReporterOptions) {
     const baseUrl = options.baseUrl ?? 'https://klage-job-status.ekstern.dev.nav.no';
     const apiKeyEnvVar = options.apiKeyEnvVar ?? 'WRITE_API_KEY';
     const jobIdEnvVar = options.jobIdEnvVar ?? 'JOB_ID';
@@ -41,7 +40,7 @@ class StatusReporter implements Reporter {
     this.jobId = process.env[jobIdEnvVar] ?? crypto.randomUUID();
     this.createUrl = `${baseUrl}/jobs/${this.jobId}`;
     this.updateUrl = `${this.createUrl}/status`;
-    this.displayName = `${name} (${VERSION}) - ${GITHUB_ACTOR} @ ${GITHUB_REPOSITORY}`;
+    this.displayName = `${options.name} (${VERSION}) - ${GITHUB_ACTOR} @ ${GITHUB_REPOSITORY}`;
     this.timeout = options.timeout ?? 15 * 60;
   }
 
