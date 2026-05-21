@@ -1,0 +1,90 @@
+name: Build and publish package
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Whether to publish the package"
+        required: false
+        default: false
+        type: boolean
+
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - ".gitignore"
+      - "*.md"
+      - ".tool-versions"
+      - "biome.json"
+      - "bunfig.toml"
+      - CODEOWNERS
+      - LICENSE
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build and check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+          registries: |
+            https://registry.npmjs.org/
+            @navikt:https://npm.pkg.github.com|$TOKEN
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run lint
+
+      - run: bun run typecheck
+
+      - run: bun run build
+
+  publish:
+    name: Publish package
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+          registries: |
+            https://registry.npmjs.org/
+            @navikt:https://npm.pkg.github.com|$TOKEN
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: bun install --frozen-lockfile
+
+      - name: Check if version is newer than the published version
+        env:
+          READER_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun .github/scripts/check-version.ts
+
+      - run: bun run build
+
+      - name: Publish package
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=$TOKEN" >> .npmrc
+          bun publish
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "v$(jq -r .version package.json)" --generate-notes
