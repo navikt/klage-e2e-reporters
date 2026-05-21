@@ -16,8 +16,11 @@ export interface SlackClientOptions {
   tagChannelOnErrorDefault?: string;
   /** Bot display name in Slack. */
   botName: string;
-  /** Bot icon URL in Slack. */
-  iconUrl: string;
+  /**
+   * Bot icon URL in Slack. If omitted, the Slack app's default icon is used.
+   * Accepts a full URL or a GitHub raw path (e.g. `navikt/klang/main/frontend/assets/logo192.png`).
+   */
+  iconUrl?: string;
 }
 
 class SlackClient {
@@ -29,7 +32,7 @@ class SlackClient {
     signingSecret: string,
     public tagChannelOnError: string,
     private botName: string,
-    private iconUrl: string,
+    private iconUrl: string | undefined,
   ) {
     this.app = new App({ token, signingSecret });
   }
@@ -40,7 +43,7 @@ class SlackClient {
       channel: this.channel,
       text: message,
       username: this.botName,
-      icon_url: this.iconUrl,
+      ...(this.iconUrl && { icon_url: this.iconUrl }),
     });
 
     return new SlackMessageThread(this, response);
@@ -126,6 +129,18 @@ class SlackClient {
   }
 }
 
+const resolveIconUrl = (iconUrl: string | undefined): string | undefined => {
+  if (iconUrl === undefined) {
+    return undefined;
+  }
+
+  if (iconUrl.startsWith('http://') || iconUrl.startsWith('https://')) {
+    return iconUrl;
+  }
+
+  return `https://raw.githubusercontent.com/${iconUrl}`;
+};
+
 export const createSlackClient = (options: SlackClientOptions): SlackClient | null => {
   const tokenEnvVar = options.tokenEnvVar ?? 'slack_e2e_token';
   const channelEnvVar = options.channelEnvVar ?? 'klage_notifications_channel';
@@ -146,7 +161,7 @@ export const createSlackClient = (options: SlackClientOptions): SlackClient | nu
     typeof secret === 'string' &&
     secret.length > 0
   ) {
-    return new SlackClient(token, channel, secret, tagChannelOnError, options.botName, options.iconUrl);
+    return new SlackClient(token, channel, secret, tagChannelOnError, options.botName, resolveIconUrl(options.iconUrl));
   }
 
   console.warn(

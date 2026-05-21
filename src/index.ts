@@ -14,7 +14,7 @@ import type { StatusReporterOptions } from '@/status-reporter';
  * import { slackReporter, statusReporter } from '@navikt/klage-e2e-reporters';
  *
  * export default defineConfig({
- *   reporter: [['list'], slackReporter({ botName: 'Klang E2E', iconUrl: '...' }), statusReporter({ name: 'Klang E2E' })],
+ *   reporter: [['list'], slackReporter({ botName: 'Klang E2E' }), statusReporter({ name: 'Klang E2E' })],
  * });
  * ```
  */
@@ -24,6 +24,15 @@ export const slackReporter = (
 
 /**
  * Creates a Playwright reporter config entry for the status reporter.
+ *
+ * @example
+ * ```ts
+ * import { statusReporter } from '@navikt/klage-e2e-reporters';
+ *
+ * export default defineConfig({
+ *   reporter: [['list'], statusReporter({ name: 'Klang E2E' })],
+ * });
+ * ```
  */
 export const statusReporter = (
   options?: StatusReporterOptions,
