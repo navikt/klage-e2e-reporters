@@ -33,6 +33,9 @@ class SlackReporter implements Reporter {
   private threads: Map<string, SlackMessageThread> = new Map();
   private pendingThreads: Map<string, Promise<SlackMessageThread | undefined>> = new Map();
   private testStatuses: Map<string, TestSlackData> = new Map();
+  private dirtyTests: Set<string> = new Set();
+  private updateTimeout: ReturnType<typeof setTimeout> | null = null;
+  private running = false;
   private tests: TestCase[] = [];
   private startTime = Date.now();
   private name = '';
@@ -44,21 +47,9 @@ class SlackReporter implements Reporter {
     this.endDelayMs = options.endDelayMs ?? 2_000;
   }
 
-  private async setTestMessage(test: TestCase, status: TestSlackData) {
+  /** Post the initial message for a test and store the thread reference. */
+  private async postTestMessage(test: TestCase, status: TestSlackData) {
     this.testStatuses.set(test.id, status);
-
-    // Wait for any pending initial message to resolve before updating.
-    const pending = this.pendingThreads.get(test.id);
-
-    if (pending !== undefined) {
-      await pending;
-    }
-
-    const existingTestThread = this.threads.get(test.id);
-
-    if (existingTestThread !== undefined) {
-      return await existingTestThread.update(formatTest(status));
-    }
 
     if (this.slack === null) {
       if (process.env.NODE_ENV === 'test') {
@@ -78,14 +69,25 @@ class SlackReporter implements Reporter {
     return testThread;
   }
 
-  private async updateTestMessage(test: TestCase, status: Partial<Omit<TestSlackData, 'title'>>) {
-    const previousStatus = this.testStatuses.get(test.id);
+  /** Send the current state of a test message to Slack. */
+  private async updateTestMessage(testId: string) {
+    const status = this.testStatuses.get(testId);
 
-    if (previousStatus === undefined) {
-      throw new Error('Cannot update message with no previous status.');
+    if (status === undefined) {
+      return;
     }
 
-    return await this.setTestMessage(test, { ...previousStatus, ...status });
+    const pending = this.pendingThreads.get(testId);
+
+    if (pending !== undefined) {
+      await pending;
+    }
+
+    const existingTestThread = this.threads.get(testId);
+
+    if (existingTestThread !== undefined) {
+      await existingTestThread.update(formatTest(status));
+    }
   }
 
   private async updateMainMessage(msg: string) {
@@ -120,6 +122,31 @@ class SlackReporter implements Reporter {
     }
 
     await this.updateMainMessage(`Running ${this.tests.length} E2E tests with ${config.workers} workers...`);
+
+    this.running = true;
+    this.scheduleNextUpdate();
+  }
+
+  private scheduleNextUpdate() {
+    if (!this.running) {
+      return;
+    }
+
+    this.updateTimeout = setTimeout(async () => {
+      const testId = this.dirtyTests.values().next().value;
+
+      if (testId !== undefined) {
+        this.dirtyTests.delete(testId);
+
+        try {
+          await this.updateTestMessage(testId);
+        } catch {
+          this.dirtyTests.add(testId);
+        }
+      }
+
+      this.scheduleNextUpdate();
+    }, 1_000);
   }
 
   async onTestBegin(test: TestCase) {
@@ -127,7 +154,7 @@ class SlackReporter implements Reporter {
 
     const isRetrying = test.results.some((r) => r.retry !== 0);
 
-    await this.setTestMessage(test, {
+    await this.postTestMessage(test, {
       icon: SlackIcon.RUNNING,
       title: getTestTitle(test),
       status: isRetrying ? 'Retrying...' : 'Running...',
@@ -135,7 +162,7 @@ class SlackReporter implements Reporter {
     });
   }
 
-  async onStepBegin(test: TestCase, _result: TestResult, step: TestStep) {
+  onStepBegin(test: TestCase, _result: TestResult, step: TestStep) {
     const status = this.testStatuses.get(test.id);
 
     if (status === undefined || step.category !== 'test.step') {
@@ -151,10 +178,10 @@ class SlackReporter implements Reporter {
       steps: new Map(),
     });
 
-    return await this.updateTestMessage(test, status);
+    this.dirtyTests.add(test.id);
   }
 
-  async onStepEnd(test: TestCase, _result: TestResult, step: TestStep) {
+  onStepEnd(test: TestCase, _result: TestResult, step: TestStep) {
     const testStatus = this.testStatuses.get(test.id);
 
     if (testStatus === undefined || !testStatus.steps.has(`${test.id}-${step.title}`)) {
@@ -168,15 +195,24 @@ class SlackReporter implements Reporter {
       steps: new Map(),
     });
 
-    return await this.updateTestMessage(test, testStatus);
+    this.dirtyTests.add(test.id);
   }
 
   async onTestEnd(test: TestCase, result: TestResult) {
-    const testThread = this.threads.get(test.id);
     const icon = getTestStatusIcon(test, result.status);
     const title = getTestTitle(test);
-    await this.updateTestMessage(test, { icon, status: `${(result.duration / 1_000).toFixed(1)}s` });
 
+    this.dirtyTests.delete(test.id);
+
+    const previousStatus = this.testStatuses.get(test.id);
+
+    if (previousStatus !== undefined) {
+      this.testStatuses.set(test.id, { ...previousStatus, icon, status: `${(result.duration / 1_000).toFixed(1)}s` });
+    }
+
+    await this.updateTestMessage(test.id);
+
+    const testThread = this.threads.get(test.id);
     const isFailed = result.status === 'failed' || result.status === 'timedOut';
 
     if (isFailed) {
@@ -227,6 +263,13 @@ class SlackReporter implements Reporter {
   }
 
   async onEnd(result: FullResult) {
+    this.running = false;
+
+    if (this.updateTimeout !== null) {
+      clearTimeout(this.updateTimeout);
+      this.updateTimeout = null;
+    }
+
     const icon = getFullStatusIcon(result);
     const duration = (Date.now() - this.startTime) / 1_000;
     const tag = this.slack?.tagChannelOnError === 'true' ? '<!channel> ' : '';
