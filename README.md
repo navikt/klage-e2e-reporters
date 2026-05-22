@@ -46,7 +46,6 @@ Posts test results to a Slack channel with per-test threads, step details, and v
 | `signingSecretEnvVar` | No | `slack_signing_secret` | Env var for Slack signing secret |
 | `tagChannelOnErrorEnvVar` | No | `tag_channel_on_error` | Env var for tag-channel-on-error flag |
 | `tagChannelOnErrorDefault` | No | `true` | Default value for tag-channel-on-error |
-| `endDelayMs` | No | `2000` | Delay in ms before onEnd completes |
 
 ### Status Reporter
 

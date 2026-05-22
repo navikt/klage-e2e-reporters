@@ -1,9 +1,9 @@
 export { getFullStatusIcon, getTestStatusIcon, getTestTitle, SlackIcon } from '@/functions';
 export { type SlackClientOptions, SlackMessageThread } from '@/slack-client';
-export { default as SlackReporter, type SlackReporterOptions } from '@/slack-reporter';
+export { default as SlackReporter } from '@/slack-reporter';
 export { default as StatusReporter, type StatusReporterOptions } from '@/status-reporter';
 
-import type { SlackReporterOptions } from '@/slack-reporter';
+import type { SlackClientOptions } from '@/slack-client';
 import type { StatusReporterOptions } from '@/status-reporter';
 
 /**
@@ -19,8 +19,8 @@ import type { StatusReporterOptions } from '@/status-reporter';
  * ```
  */
 export const slackReporter = (
-  options: SlackReporterOptions,
-): ['@navikt/klage-e2e-reporters/slack', SlackReporterOptions] => ['@navikt/klage-e2e-reporters/slack', options];
+  options: SlackClientOptions,
+): ['@navikt/klage-e2e-reporters/slack', SlackClientOptions] => ['@navikt/klage-e2e-reporters/slack', options];
 
 /**
  * Creates a Playwright reporter config entry for the status reporter.
