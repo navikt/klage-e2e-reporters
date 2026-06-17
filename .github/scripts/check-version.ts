@@ -39,7 +39,7 @@ const getPublishedVersion = async (packageName: string): Promise<string | null> 
 };
 
 const parseVersion = (version: string): [number, number, number] => {
-  const parts = version.split('.').map(Number);
+  const parts = version.split('.').map((val) => Number.parseInt(val, 10));
 
   if (parts.length !== 3 || parts.some((p) => !Number.isFinite(p) || p < 0)) {
     throw new Error(`Invalid semver version: "${version}"`);
