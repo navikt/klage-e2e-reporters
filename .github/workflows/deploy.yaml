@@ -58,6 +58,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -84,7 +86,27 @@ jobs:
           echo "//npm.pkg.github.com/:_authToken=$TOKEN" >> .npmrc
           bun publish
 
-      - name: Create GitHub release
+      - name: Generate changelog
+        id: changelog
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "v$(jq -r .version package.json)" --generate-notes
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          VERSION="$(jq -r .version package.json)"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "## Changes" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          if [ -n "$PREVIOUS_TAG" ]; then
+            git log "${PREVIOUS_TAG}..HEAD" --pretty=format:"- %s" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            echo "**Full Changelog**: [${PREVIOUS_TAG}...${VERSION}](${REPO_URL}/compare/${PREVIOUS_TAG}...${VERSION})" >> RELEASE_NOTES.md
+          else
+            git log --pretty=format:"- %s" >> RELEASE_NOTES.md
+          fi
+
+      - name: Create GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ steps.changelog.outputs.version }}
+          bodyFile: "RELEASE_NOTES.md"
