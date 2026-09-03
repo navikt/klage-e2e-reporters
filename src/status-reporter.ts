@@ -3,9 +3,9 @@ import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/tes
 export interface StatusReporterOptions {
   /** Display name for the job. */
   name: string;
-  /** Base URL for the job status API. @default 'https://klage-job-status.ekstern.dev.nav.no' */
+  /** Base URL of the job status API. @default 'https://klage-job-status.ekstern.dev.nav.no' */
   baseUrl?: string;
-  /** Timeout in seconds for the job. @default 900 (15 minutes) */
+  /** Job timeout in seconds. @default 900 */
   timeout?: number;
   /** Environment variable name for the write API key. @default 'WRITE_API_KEY' */
   apiKeyEnvVar?: string;
@@ -101,7 +101,7 @@ class StatusReporter implements Reporter {
 
   private async setStatusOnEnd(test: TestCase, result: TestResult) {
     if (result.retry < test.retries) {
-      // If it is retrying, we don't want to set the final status yet.
+      // Another attempt follows, so the status is not final yet.
       return await this.update(Status.RUNNING);
     }
 
