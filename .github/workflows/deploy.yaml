@@ -34,7 +34,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .tool-versions
           registries: |
             https://registry.npmjs.org/
             @navikt:https://npm.pkg.github.com|$TOKEN
@@ -47,11 +47,14 @@ jobs:
 
       - run: bun run typecheck
 
+      - run: bun run test
+
       - run: bun run build
 
   publish:
     name: Publish package
     needs: build
+    if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -63,7 +66,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .tool-versions
           registries: |
             https://registry.npmjs.org/
             @navikt:https://npm.pkg.github.com|$TOKEN

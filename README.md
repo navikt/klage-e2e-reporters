@@ -1,6 +1,8 @@
 # @navikt/klage-e2e-reporters
 
-Shared Playwright reporters for Klage E2E test suites. Provides Slack notifications and job status reporting.
+Shared Playwright reporters for Klage E2E test suites: Slack notifications and job status reporting.
+
+Upgrading from 1.x? See [MIGRATION.md](./MIGRATION.md).
 
 ## Install
 
@@ -33,7 +35,20 @@ export default defineConfig({
 
 ### Slack Reporter
 
-Posts test results to a Slack channel with per-test threads, step details, and video/trace uploads on failure.
+Posts a single summary message to a Slack channel, updated while the run is in progress, and keeps the details
+in its thread. A colored bar along the left edge shows the status: blue while running, green when everything
+passed and red when something failed.
+
+The details of a failing attempt are posted the moment the attempt fails, so a failure is in the thread while
+the rest of the suite is still running, and the failures of a run that never finishes are there too. Every
+failing attempt gets its own message, because a retry rarely fails the same way twice and the attempt that was
+thrown away is often the one that says why. When a later attempt saves the test, the messages already in the
+thread are rewritten in place from `Failed` to `Flaky`, keeping their text and their attachments. The warnings
+and the slow tests close the thread once the run is over.
+
+A thread message that carries uploaded files is posted under the Slack app's own name and icon rather than
+`botName` and `iconUrl`. Slack turns a message with either of those overrides into a `bot_message`, and drops
+the attachments of a `bot_message` without failing the call, so the media of a failing test would go missing.
 
 #### Options
 
@@ -44,8 +59,11 @@ Posts test results to a Slack channel with per-test threads, step details, and v
 | `tokenEnvVar` | No | `slack_e2e_token` | Env var for Slack bot token |
 | `channelEnvVar` | No | `klage_notifications_channel` | Env var for Slack channel |
 | `signingSecretEnvVar` | No | `slack_signing_secret` | Env var for Slack signing secret |
-| `tagChannelOnErrorEnvVar` | No | `tag_channel_on_error` | Env var for tag-channel-on-error flag |
-| `tagChannelOnErrorDefault` | No | `true` | Default value for tag-channel-on-error |
+| `slowTestThreshold` | No | `60000` | Tests slower than this (ms) are listed as slow |
+| `slowStepThreshold` | No | `15000` | Steps slower than this (ms) are listed as slow |
+| `maxSlowTests` | No | `10` | Max slow tests listed, each with all of its slow steps |
+| `maxFailureDetails` | No | `25` | Max failing attempts that get their own detailed message, the first to fail |
+| `trigger` | No | GitHub Actions env | Run metadata: `repository`, `branch`, `actor` and `version` |
 
 ### Status Reporter
 
@@ -63,23 +81,32 @@ Reports job status to the [klage-job-status](https://github.com/navikt/klage-job
 
 ## Environment Variables
 
-The reporters read credentials from environment variables (configurable via options above):
+Credentials and run metadata, read from the environment. The variables with an option can be renamed through it,
+and the names below are their defaults. The run metadata is what GitHub Actions sets, and the Slack reporter
+takes it directly through `trigger` instead, if it is given. A `trigger` value given as an empty string counts as
+one that was not given, and falls back to the environment. The status reporter always reads its metadata from
+the environment.
 
-| Variable | Used by | Description |
-| --- | --- | --- |
-| `slack_e2e_token` | Slack | Bot OAuth token |
-| `slack_signing_secret` | Slack | App signing secret |
-| `klage_notifications_channel` | Slack | Channel ID to post to |
-| `tag_channel_on_error` | Slack | Whether to @channel on failures |
-| `WRITE_API_KEY` | Status | API key for klage-job-status |
-| `JOB_ID` | Status | Unique job identifier |
-| `VERSION` | Both | App version shown in messages |
-| `GITHUB_ACTOR` | Both | GitHub user who triggered the run |
-| `GITHUB_REPOSITORY` | Both | Repository name |
+| Variable | Used by | Option | Description |
+| --- | --- | --- | --- |
+| `slack_e2e_token` | Slack | `tokenEnvVar` | Bot OAuth token |
+| `slack_signing_secret` | Slack | `signingSecretEnvVar` | App signing secret |
+| `klage_notifications_channel` | Slack | `channelEnvVar` | Channel ID to post to |
+| `WRITE_API_KEY` | Status | `apiKeyEnvVar` | API key for klage-job-status |
+| `JOB_ID` | Status | `jobIdEnvVar` | Unique job identifier |
+| `VERSION` | Both | `trigger.version` | App version shown in messages |
+| `GITHUB_ACTOR` | Both | `trigger.actor` | GitHub user who triggered the run |
+| `GITHUB_REPOSITORY` | Both | `trigger.repository` | Repository name |
+| `GITHUB_REF_NAME` | Slack | `trigger.branch` | Branch shown in the trigger metadata |
+
+A value that cannot be found is shown as `unknown`, and the Slack reporter warns on stderr, naming the field and
+the variable it looked for. Nothing is inherited where the tests run: a Naisjob holds only what its manifest was
+handed, so each variable has to be passed in deliberately. A workflow that knows its own event resolves the
+branch itself, with `${{ github.head_ref || github.ref_name }}`, and hands over the answer.
 
 ## Subpath Exports
 
-The package provides subpath exports for direct use in Playwright's tuple syntax:
+For direct use in Playwright's tuple syntax:
 
 - `@navikt/klage-e2e-reporters` - Helper functions and re-exports
 - `@navikt/klage-e2e-reporters/slack` - Slack reporter class
@@ -92,4 +119,56 @@ bun install
 bun run build
 bun run lint
 bun run typecheck
+bun run test
 ```
+
+`bun run test` runs the unit tests, which is what CI runs. The Slack report itself is checked by hand, with the
+script below.
+
+### Checking the Slack report by hand
+
+`bun run report:slack` posts two fake runs to Slack, so the layout of the report can be verified by hand:
+
+- a failed run with passed, slow, failed, flaky and skipped tests, including screenshots, video, trace, stdout
+  and stack traces, and a test whose title is long enough to fill a Slack message on its own
+- a successful run where everything passes on the first attempt
+
+It takes well under a minute: every step is played out in a fixed second, rather than the duration the fake test
+reports, which is long enough for the main message to be updated a few times while a run is in progress, and for
+the failures to reach the thread before the run is over. The script fails if the reporter logs an error.
+
+Afterwards it reads the failed report back out of Slack and checks that the thread carries the 21 files it
+should, and that every test ended up with the outcome it should have, flaky ones included. A message can lose
+its attachments without any call failing, and a rewrite can lose them too, so this is the only way to tell. That
+check needs `channels:history`, or `groups:history` in a private channel, on top of the credentials, which Bun
+loads from `.env` automatically:
+
+```sh
+# .env (git ignored)
+slack_e2e_token=xoxb-...
+slack_signing_secret=...
+klage_notifications_channel=C0123456789
+```
+
+#### Cleaning up the test reports
+
+`src/slack-reporter/test/cleanup.ts` deletes the reports the script posted, and leaves everything else in the
+channel alone. A thread is only deleted when its main message was posted by the bot the token belongs to and
+carries the whole fake trigger: this repository, `fake-branch`, `fake-actor` and `fake-version`. The repository
+on its own would also match a real report from here, so every marker has to be there. The whole thread goes with
+it: replies, uploaded files and the messages sharing them. Anything that only partly matches is listed as kept.
+
+```sh
+bun run clean:slack            # lists what would be deleted, from the last three days
+bun run clean:slack --days=7   # a different window
+bun run clean:slack --delete   # deletes it
+```
+
+It reads `slack_e2e_token` and `klage_notifications_channel` from `.env`, and needs no signing secret of its
+own. The bot token needs these scopes:
+
+| Scope | Used for |
+| --- | --- |
+| `channels:history` (`groups:history` in a private channel) | Finding the reports |
+| `chat:write` | Deleting the messages |
+| `files:write` | Deleting the uploaded files |
