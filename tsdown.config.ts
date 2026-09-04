@@ -5,7 +5,12 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   format: 'esm',
-  entry: ['src/index.ts', 'src/slack-reporter.ts', 'src/status-reporter.ts'],
+  // Keeps the built file names stable now that the Slack reporter is a folder.
+  entry: {
+    index: 'src/index.ts',
+    'slack-reporter': 'src/slack-reporter/index.ts',
+    'status-reporter': 'src/status-reporter.ts',
+  },
   platform: 'node',
   deps: {
     neverBundle: [/^@slack\//, /^@playwright\//],
