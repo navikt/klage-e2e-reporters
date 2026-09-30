@@ -1,6 +1,6 @@
 {
   "name": "@navikt/klage-e2e-reporters",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "type": "module",
   "license": "MIT",
   "files": [
@@ -40,11 +40,11 @@
     "@slack/web-api": "8.1.1"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.12",
+    "@biomejs/biome": "2.5.14",
     "@playwright/test": "1.63.0",
-    "@types/bun": "1.4.1",
-    "@types/node": "25.9.5",
-    "knip": "6.34.0",
+    "@types/bun": "1.4.2",
+    "@types/node": "24.19.0",
+    "knip": "6.38.0",
     "tsdown": "0.23.0",
     "typescript": "7.0.2"
   }
