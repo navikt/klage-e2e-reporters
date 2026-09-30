@@ -58,7 +58,7 @@ the attachments of a `bot_message` without failing the call, so the media of a f
 | `iconUrl` | No | | Bot icon URL or GitHub raw path |
 | `tokenEnvVar` | No | `slack_e2e_token` | Env var for Slack bot token |
 | `channelEnvVar` | No | `klage_notifications_channel` | Env var for Slack channel |
-| `signingSecretEnvVar` | No | `slack_signing_secret` | Env var for Slack signing secret |
+| `signingSecretEnvVar` | No | | Deprecated and ignored, will be removed in the next major version |
 | `slowTestThreshold` | No | `60000` | Tests slower than this (ms) are listed as slow |
 | `slowStepThreshold` | No | `15000` | Steps slower than this (ms) are listed as slow |
 | `maxSlowTests` | No | `10` | Max slow tests listed, each with all of its slow steps |
@@ -90,7 +90,6 @@ the environment.
 | Variable | Used by | Option | Description |
 | --- | --- | --- | --- |
 | `slack_e2e_token` | Slack | `tokenEnvVar` | Bot OAuth token |
-| `slack_signing_secret` | Slack | `signingSecretEnvVar` | App signing secret |
 | `klage_notifications_channel` | Slack | `channelEnvVar` | Channel ID to post to |
 | `WRITE_API_KEY` | Status | `apiKeyEnvVar` | API key for klage-job-status |
 | `JOB_ID` | Status | `jobIdEnvVar` | Unique job identifier |
@@ -146,7 +145,6 @@ loads from `.env` automatically:
 ```sh
 # .env (git ignored)
 slack_e2e_token=xoxb-...
-slack_signing_secret=...
 klage_notifications_channel=C0123456789
 ```
 

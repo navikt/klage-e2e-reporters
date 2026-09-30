@@ -10,7 +10,6 @@
  *
  * ```sh
  * slack_e2e_token=xoxb-...
- * slack_signing_secret=...
  * klage_notifications_channel=C0123456789
  * ```
  */
@@ -28,7 +27,7 @@ import {
 } from '@/slack-reporter/test/fake-runs';
 import { verifyReport } from '@/slack-reporter/test/verify';
 
-const REQUIRED_ENV_VARS = ['slack_e2e_token', 'slack_signing_secret', 'klage_notifications_channel'];
+const REQUIRED_ENV_VARS = ['slack_e2e_token', 'klage_notifications_channel'];
 
 const missingEnvVars = REQUIRED_ENV_VARS.filter((name) => (process.env[name] ?? '').length === 0);
 

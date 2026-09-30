@@ -1,7 +1,11 @@
 import fs, { createReadStream, type ReadStream } from 'node:fs';
-import { App } from '@slack/bolt';
 import type { AnyBlock, RichTextBlock } from '@slack/types';
-import type { ChatPostMessageResponse, ChatUpdateResponse, WebAPICallResult } from '@slack/web-api';
+import {
+  type ChatPostMessageResponse,
+  type ChatUpdateResponse,
+  type WebAPICallResult,
+  WebClient,
+} from '@slack/web-api';
 import { toSlackText } from '@/functions';
 
 export interface SlackClientOptions {
@@ -9,7 +13,10 @@ export interface SlackClientOptions {
   tokenEnvVar?: string;
   /** Environment variable name for the Slack channel. @default 'klage_notifications_channel' */
   channelEnvVar?: string;
-  /** Environment variable name for the Slack signing secret. @default 'slack_signing_secret' */
+  /**
+   * @deprecated Ignored. The reporter only sends to Slack, and a signing secret is only used to verify requests
+   * coming from Slack. Will be removed in the next major version.
+   */
   signingSecretEnvVar?: string;
   /** Bot display name in Slack. */
   botName: string;
@@ -27,16 +34,15 @@ export const MAX_FILES_PER_MESSAGE = 10;
 const DEFAULT_FILENAME = 'attachment';
 
 class SlackClient {
-  private app: App;
+  private client: WebClient;
 
   constructor(
     private token: string,
     private channel: string,
-    signingSecret: string,
     private botName: string,
     private iconUrl: string | undefined,
   ) {
-    this.app = new App({ token, signingSecret });
+    this.client = new WebClient(token);
   }
 
   /**
@@ -53,7 +59,7 @@ class SlackClient {
       icon_url: this.iconUrl,
     };
 
-    const response = await this.app.client.chat.postMessage(
+    const response = await this.client.chat.postMessage(
       color === undefined || blocks === undefined
         ? { ...base, text: toSlackText(message), blocks }
         : { ...base, attachments: [{ color, fallback: message, blocks }] },
@@ -132,7 +138,7 @@ class SlackClient {
       throw new Error(`Cannot share ${files.length} files on one message. Slack allows ${MAX_FILES_PER_MESSAGE}.`);
     }
 
-    const upload = await this.app.client.files.uploadV2({
+    const upload = await this.client.files.uploadV2({
       token: this.token,
       file_uploads: files.map(({ file, filename, title }) => ({ file, filename, title: title ?? filename })),
     });
@@ -149,7 +155,7 @@ class SlackClient {
     // so they are discarded rather than left behind in the workspace storage.
     // No `username` or `icon_url`: they would cost the message its attachments. See the note above.
     try {
-      posted = await this.app.client.chat.postMessage({
+      posted = await this.client.chat.postMessage({
         token: this.token,
         channel,
         text,
@@ -172,7 +178,7 @@ class SlackClient {
     // which would make the caller post a second one. The files are discarded, since nothing can reach them:
     // they were uploaded without a channel, and the message that would have shared them never got them.
     try {
-      const updated = await this.app.client.chat.update({
+      const updated = await this.client.chat.update({
         token: this.token,
         channel: posted.channel ?? channel,
         ts: posted.ts,
@@ -208,7 +214,7 @@ class SlackClient {
   /** Best effort: an orphaned upload is invisible in Slack, but still counts against the workspace storage. */
   private async discardFiles(fileIds: string[]) {
     const results = await Promise.allSettled(
-      fileIds.map((file) => this.app.client.files.delete({ token: this.token, file })),
+      fileIds.map((file) => this.client.files.delete({ token: this.token, file })),
     );
 
     const failed = results.filter(({ status }) => status === 'rejected').length;
@@ -271,7 +277,7 @@ class SlackClient {
     };
 
     try {
-      const response = await this.app.client.chat.update(
+      const response = await this.client.chat.update(
         color === undefined || blocks === undefined
           ? { ...base, text: toSlackText(newMessage), blocks }
           : { ...base, attachments: [{ color, fallback: newMessage, blocks }] },
@@ -292,7 +298,7 @@ class SlackClient {
       throw new Error('Could not reply to message.');
     }
 
-    const posted = await this.app.client.chat.postMessage({
+    const posted = await this.client.chat.postMessage({
       token: this.token,
       channel: threadMessage?.channel ?? this.channel,
       thread_ts: threadMessage.ts,
@@ -360,26 +366,15 @@ const resolveIconUrl = (iconUrl: string | undefined): string | undefined => {
 export const createSlackClient = (options: SlackClientOptions): SlackClient | null => {
   const tokenEnvVar = options.tokenEnvVar ?? 'slack_e2e_token';
   const channelEnvVar = options.channelEnvVar ?? 'klage_notifications_channel';
-  const signingSecretEnvVar = options.signingSecretEnvVar ?? 'slack_signing_secret';
 
   const token = process.env[tokenEnvVar];
   const channel = process.env[channelEnvVar];
-  const secret = process.env[signingSecretEnvVar];
 
-  if (
-    typeof token === 'string' &&
-    token.length > 0 &&
-    typeof channel === 'string' &&
-    channel.length > 0 &&
-    typeof secret === 'string' &&
-    secret.length > 0
-  ) {
-    return new SlackClient(token, channel, secret, options.botName, resolveIconUrl(options.iconUrl));
+  if (typeof token === 'string' && token.length > 0 && typeof channel === 'string' && channel.length > 0) {
+    return new SlackClient(token, channel, options.botName, resolveIconUrl(options.iconUrl));
   }
 
-  console.warn(
-    `Could not create Slack client. Missing env variables: ${tokenEnvVar}, ${channelEnvVar}, ${signingSecretEnvVar}`,
-  );
+  console.warn(`Could not create Slack client. Missing env variables: ${tokenEnvVar}, ${channelEnvVar}`);
 
   return null;
 };
