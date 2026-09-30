@@ -103,6 +103,28 @@ the variable it looked for. Nothing is inherited where the tests run: a Naisjob 
 handed, so each variable has to be passed in deliberately. A workflow that knows its own event resolves the
 branch itself, with `${{ github.head_ref || github.ref_name }}`, and hands over the answer.
 
+## NAIS Access Policy
+
+```yaml
+spec:
+  accessPolicy:
+    outbound:
+      external:
+        - host: slack.com
+        - host: files.slack.com
+        - host: klage-job-status.ekstern.dev.nav.no
+```
+
+| Host | Used by | Description |
+| --- | --- | --- |
+| `slack.com` | Slack | Posting and updating messages, and every other Web API call |
+| `files.slack.com` | Slack | Uploading screenshots, videos, traces and other attachments |
+| `klage-job-status.ekstern.dev.nav.no` | Status | The default `baseUrl`. Allow the host of your own `baseUrl` instead if it is set |
+
+Only the hosts of the reporters in use are needed. Without `files.slack.com`, messages are posted without their
+attachments. Slack returns the upload address with each upload, so if uploads still fail, check the `upload_url`.
+The `iconUrl` needs no rule, since Slack fetches it.
+
 ## Subpath Exports
 
 For direct use in Playwright's tuple syntax:
